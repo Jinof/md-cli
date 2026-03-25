@@ -1,0 +1,48 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            ext: tar.gz
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            ext: zip
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            ext: tar.gz
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            ext: tar.gz
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cross-compile target
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Build
+        run: |
+          cargo build --release --target ${{ matrix.target }}
+          mkdir -p dist
+          if [ "${{ matrix.os }}" == "windows-latest" ]; then
+            powershell -Command "Compress-Archive -Path 'target/${{ matrix.target }}/release/md-cli.exe' -DestinationPath 'dist/md-cli-${{ matrix.target }}.zip'"
+          else
+            tar -czf dist/md-cli-${{ matrix.target }}.tar.gz -C target/${{ matrix.target }}/release md-cli
+          fi
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: md-cli-${{ matrix.target }}
+          path: dist/*
