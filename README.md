@@ -88,3 +88,8 @@ npm install -g md-cli
 
 This works on macOS, Linux, and Windows.
 
+
+## Roadmap
+
+See [ROADMAP.md](ROADMAP.md) for planned features and future direction.
+
