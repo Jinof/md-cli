@@ -12,54 +12,51 @@ jobs:
   build:
     strategy:
       matrix:
-        include:
+        platform:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-musl
             dir: linux-x64
             ext: tar.gz
+            package_cmd: tar -czf ../../../dist/md-cli-${{ matrix.platform.dir }}.tar.gz -C ../../release md-cli
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             dir: win32-x64
             ext: zip
+            package_cmd: powershell -Command "Compress-Archive -Path 'target/${{ matrix.platform.target }}/release/md-cli.exe' -DestinationPath 'dist/md-cli-${{ matrix.platform.dir }}.zip'"
           - os: macos-latest
             target: x86_64-apple-darwin
             dir: darwin-x64
             ext: tar.gz
+            package_cmd: tar -czf ../../../dist/md-cli-${{ matrix.platform.dir }}.tar.gz -C ../../release md-cli
           - os: macos-latest
             target: aarch64-apple-darwin
             dir: darwin-arm64
             ext: tar.gz
+            package_cmd: tar -czf ../../../dist/md-cli-${{ matrix.platform.dir }}.tar.gz -C ../../release md-cli
 
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.platform.os }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install musl-gcc (Linux)
-        if: matrix.os == 'ubuntu-latest'
+      - name: Install musl-gcc
+        if: matrix.platform.os == 'ubuntu-latest'
         run: |
           sudo apt-get update && sudo apt-get install -y musl-tools
 
-      - name: Add macOS targets
-        if: matrix.os == 'macos-latest'
+      - name: Add Apple targets
+        if: matrix.platform.os == 'macos-latest'
         run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
 
       - name: Build
         run: |
-          cargo build --release --target ${{ matrix.target }}
-
+          cargo build --release --target ${{ matrix.platform.target }}
           mkdir -p dist
-
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            cd target/${{ matrix.target }}/release
-            powershell -Command "Compress-Archive -Path 'md-cli.exe' -DestinationPath '..\\..\\..\\dist\\md-cli-${{ matrix.dir }}.zip'"
-          else
-            tar -czf ../../dist/md-cli-${{ matrix.dir }}.tar.gz -C ../../release md-cli
-          fi
+          ${{ matrix.platform.package_cmd }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: md-cli-${{ matrix.dir }}
+          name: md-cli-${{ matrix.platform.dir }}
           path: dist/*
 
   publish:
