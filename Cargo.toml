@@ -2,6 +2,12 @@
 name = "md-cli"
 version = "0.1.0"
 edition = "2021"
+description = "Markdown Node Editor - Parse and edit markdown files by heading structure"
+license = "MIT"
+repository = "https://github.com/Jinof/md-cli"
+readme = "README.md"
+keywords = ["markdown", "editor", "cli"]
+categories = ["text-editors", "command-line-utilities"]
 
 [dependencies]
 clap = { version = "4", features = ["derive", "cargo"] }
@@ -12,3 +18,5 @@ serde_json = "1"
 [profile.release]
 opt-level = 3
 lto = true
+codegen-units = 1
+strip = true
