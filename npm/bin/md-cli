@@ -1,0 +1,155 @@
+#!/usr/bin/env node
+
+/**
+ * md-cli npm wrapper
+ * Downloads and runs the appropriate binary for this platform
+ */
+
+const { spawn, execSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+
+// If --install flag, just download and exit
+const isInstallMode = process.argv.includes('--install');
+
+const OWNER = 'Jinof';
+const REPO = 'md-cli';
+
+// Detect platform
+const platform = os.platform(); // 'darwin', 'linux', 'win32'
+const arch = os.arch(); // 'x64', 'arm64'
+
+const PLATFORMS = {
+  'darwin-x64': { dir: 'darwin-x64', ext: 'tar.gz', bin: 'md-cli', cmd: 'tar -xzf @SRC -C @DIR' },
+  'darwin-arm64': { dir: 'darwin-arm64', ext: 'tar.gz', bin: 'md-cli', cmd: 'tar -xzf @SRC -C @DIR' },
+  'linux-x64': { dir: 'linux-x64', ext: 'tar.gz', bin: 'md-cli', cmd: 'tar -xzf @SRC -C @DIR' },
+  'win32-x64': { dir: 'win32-x64', ext: 'zip', bin: 'md-cli.exe', cmd: 'powershell -Command "Expand-Archive -Path @SRC -DestinationPath @DIR -Force"' }
+};
+
+const key = `${platform}-${arch}`;
+const info = PLATFORMS[key];
+
+if (!info) {
+  if (isInstallMode) {
+    console.error(`Unsupported platform: ${platform}/${arch}`);
+    console.log('Please download manually from: https://github.com/Jinof/md-cli/releases');
+    process.exit(0);
+  }
+  console.error(`Unsupported platform: ${platform}/${arch}`);
+  process.exit(1);
+}
+
+const binDir = path.join(__dirname);
+const binaryPath = path.join(binDir, info.bin);
+const cacheDir = path.join(os.homedir(), '.md-cli-cache');
+
+// Get version from package.json
+let VERSION;
+try {
+  VERSION = require('../package.json').version;
+} catch (e) {
+  VERSION = '0.1.0';
+}
+
+// Check if binary exists and is executable
+function checkBinary() {
+  if (fs.existsSync(binaryPath)) {
+    try {
+      fs.chmodSync(binaryPath, 0o755);
+      return true;
+    } catch (e) {}
+  }
+  return false;
+}
+
+// Download file using curl/wget
+function downloadFile(url, dest) {
+  return new Promise((resolve, reject) => {
+    // Try curl first (available on macOS/Linux)
+    try {
+      execSync(`curl -fsSL -o "${dest}" "${url}"`, { stdio: 'pipe' });
+      resolve();
+      return;
+    } catch (e) {}
+
+    // Try wget
+    try {
+      execSync(`wget -O "${dest}" "${url}"`, { stdio: 'pipe' });
+      resolve();
+      return;
+    } catch (e) {}
+
+    // Fallback: use Node.js http
+    const https = require('https');
+    const http = require('http');
+    const file = fs.createWriteStream(dest);
+    const request = url.startsWith('https') ? https : http;
+    
+    request.get(url, (response) => {
+      if (response.statusCode === 302 || response.statusCode === 301) {
+        downloadFile(response.headers.location, dest).then(resolve).catch(reject);
+        return;
+      }
+      response.pipe(file);
+      file.on('finish', () => { file.close(); resolve(); });
+    }).on('error', reject);
+  });
+}
+
+// Install mode: just download the binary
+async function install() {
+  if (checkBinary()) {
+    console.log('md-cli is already installed.');
+    return;
+  }
+
+  const filename = `md-cli-${key}.${info.ext}`;
+  const url = `https://github.com/${OWNER}/${REPO}/releases/download/v${VERSION}/${filename}`;
+  const tmpFile = path.join(cacheDir, filename);
+
+  console.log(`Installing md-cli ${VERSION} for ${key}...`);
+
+  try {
+    fs.mkdirSync(cacheDir, { recursive: true });
+    fs.mkdirSync(binDir, { recursive: true });
+
+    console.log(`Downloading from ${url}...`);
+    await downloadFile(url, tmpFile);
+
+    console.log('Extracting...');
+    const cmd = info.cmd
+      .replace('@SRC', tmpFile)
+      .replace('@DIR', binDir);
+    
+    execSync(cmd, { stdio: 'pipe' });
+    fs.chmodSync(binaryPath, 0o755);
+    fs.unlinkSync(tmpFile);
+
+    console.log(`Installed md-cli to ${binaryPath}`);
+  } catch (err) {
+    console.error('Installation failed:', err.message);
+    console.log('Please download manually from: https://github.com/Jinof/md-cli/releases');
+    process.exit(0); // Don't fail the npm install
+  }
+}
+
+// Run mode: install if needed, then run
+async function run() {
+  if (!checkBinary()) {
+    console.log('Installing md-cli...');
+    await install();
+  }
+
+  spawn(binaryPath, process.argv.filter(a => a !== '--install'), {
+    stdio: 'inherit',
+    shell: false,
+    windowsHide: true
+  });
+}
+
+if (isInstallMode) {
+  install();
+} else {
+  run();
+}

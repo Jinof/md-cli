@@ -1,0 +1,31 @@
+{
+  "name": "md-cli",
+  "version": "0.1.0",
+  "description": "Markdown Node Editor - Parse and edit markdown files by heading structure",
+  "author": "Jinof <jinof@outlook.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Jinof/md-cli"
+  },
+  "keywords": ["markdown", "editor", "cli"],
+  "preferUnstable": false,
+  "bin": {
+    "md-cli": "./bin/md-cli"
+  },
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
+  "files": [
+    "bin/"
+  ],
+  "scripts": {
+    "postinstall": "node bin/md-cli --install"
+  }
+}

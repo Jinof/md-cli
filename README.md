@@ -77,3 +77,14 @@ Nodes are referenced by path based on heading structure:
 ## License
 
 MIT
+
+## npm
+
+Install via npm:
+
+```bash
+npm install -g md-cli
+```
+
+This works on macOS, Linux, and Windows.
+
